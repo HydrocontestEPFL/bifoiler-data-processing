@@ -8,7 +8,7 @@ import os
 from quaternion import *
 
 def qrotate(q, v):
-    qv = Quaternion([0]+v)
+    qv = Quaternion([0]+list(v))
     qv = q * qv * q.conjugated()
     return list(qv)[1:]
 
@@ -27,22 +27,10 @@ def q_NED2ENU(q):
 def NED2ENU(v):
     return ENU2NED(v)
 
-def velocity_irf2brf(q_BI, v):
-    return qrotate_inverse(q_BI, v)
-
-
 def main():
     parser = argparse.ArgumentParser()
-    # parser.add_argument('velocity_log', help='Velocity CSV log')
-    # parser.add_argument('quaternion_log', help='Quaternion orientation CSV log')
-    # parser.add_argument('position_log', help='Position CSV log')
     parser.add_argument('dir', help='Directory containing CSV logs')
-    # parser.add_argument('outfile', help='CSV output file name')
     args = parser.parse_args()
-
-    # pos = pandas.read_csv(args.position_log, sep=';')
-    # vel = pandas.read_csv(args.velocity_log, sep=';')
-    # quat = pandas.read_csv(args.quaternion_log, sep=';')
 
     velocity_log = os.path.join(args.dir, '_xsens_publisher_node_filter_xs_velocity.csv')
     position_log = os.path.join(args.dir, '_xsens_publisher_node_filter_xs_latlongalt.csv')
@@ -76,9 +64,9 @@ def main():
     v_scale = 15*np.max(v)
 
     # quaternion orientation NED
-    q_ENU = quat[['w','x','y','z']].values[::subsample]
-    # q_ENU = [Quaternion(q) for q in q_ENU]
-    q_ENU = [q_NED2ENU(q) for q in q_ENU]
+    quat = quat[['w','x','y','z']].values[::subsample]
+    # q_ENU = [Quaternion(q) for q in quat]
+    q_ENU = [q_NED2ENU(q) for q in quat]
 
     # Boat reference frame unit vectors
     # e1_I = [1,0,0]
@@ -125,9 +113,6 @@ def main():
     # fig = plt.figure()
     # ax = fig.gca(projection='3d')
     # ax.quiver(r[:,0], r[:,1], z, v[:,0], v[:,1], vz, length=1, normalize=True)
-
-    # out.to_csv(args.outfile, sep=';')
-    # print('wrote {} lines to {}'.format(len(out)+1, args.outfile))
 
 if __name__ == '__main__':
     main()
