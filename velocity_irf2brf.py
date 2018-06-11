@@ -1,23 +1,19 @@
 import matplotlib.pyplot as plt
+from mpl_toolkits.mplot3d import axes3d
 import pandas
 import numpy as np
 import argparse
+import os
 
 from quaternion import *
 
-# in ENU inertial reference frame
-v = [4.25936126709, 1.84786343575, -0.189002215862]
-q = Quaternion([-0.963283419609, -0.265894293785, 0.0170159712434, -0.033102504909])
-
 def qrotate(q, v):
-    qv = Quaternion([0]+v)
+    qv = Quaternion([0]+list(v))
     qv = q * qv * q.conjugated()
-    # qv = q * qv * q.inverse()
     return list(qv)[1:]
 
 def qrotate_inverse(q, v):
     return qrotate(q.conjugated(), v)
-    # return qrotate(q.inverse(), v)
 
 def q_ENU2NED(q):
     return Quaternion([q[0]] + ENU2NED(q[1:]))
@@ -25,29 +21,61 @@ def q_ENU2NED(q):
 def ENU2NED(v):
     return [v[1], v[0], -v[2]]
 
-def velocity_irf2brf(q_BI, v):
-    return qrotate_inverse(q_BI, v)
+def q_NED2ENU(q):
+    return q_ENU2NED(q)
 
-
-print(v)
-print(ENU2NED(v))
-print(q)
-print(q_ENU2NED(q))
-
-print(velocity_irf2brf(q, v))
-print(velocity_irf2brf(q_ENU2NED(q), ENU2NED(v)))
+def NED2ENU(v):
+    return ENU2NED(v)
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument('velocity_log', help='Velocity CSV log')
-    parser.add_argument('quaternion_log', help='Quaternion orientation CSV log')
-    parser.add_argument('outfile', help='CSV output file name')
+    parser.add_argument('dir', help='Directory containing CSV logs')
+    parser.add_argument('outfile', help='CSV output file name', nargs='?')
+    parser.add_argument('--plot', help='flag to enable plot', action='store_true')
     args = parser.parse_args()
 
-    src = pandas.read_csv(args.velocity_log, sep=';')
+    velocity_log = os.path.join(args.dir, '_xsens_publisher_node_filter_xs_velocity.csv')
+    quaternion_log = os.path.join(args.dir, '_xsens_publisher_node_filter_xs_quaternion.csv')
 
-    # out.to_csv(args.outfile, sep=';')
-    # print('wrote {} lines to {}'.format(len(out)+1, args.outfile))
+    vel = pandas.read_csv(velocity_log, sep=';')
+    quat = pandas.read_csv(quaternion_log, sep=';')
+
+    # boat reference frame:
+    # x forward
+    # y left
+    # z up
+
+    # velocity data seems to be in NED reference frame (even if data log states otherwise)
+
+    # TODO: verify correct reference frame and orientation.
+    # reference frames were deduced purely from datalogs and what seemed to make sense
+    # this should be verified by proper tests (and by checking the sensor configuration)
+
+    # velocity NED
+    v = vel[['x','y','z']].values
+    v_ENU = np.array(v)
+    # v_ENU = np.array([NED2ENU(vv) for vv in v])
+
+    # quaternion orientation NED
+    quat = quat[['w','x','y','z']].values
+    q_ENU = [Quaternion(q) for q in quat]
+    # q_ENU = [q_NED2ENU(q) for q in quat]
+
+    v_brf = np.array([qrotate_inverse(q, v) for q, v in zip(q_ENU, v_ENU)])
+
+    df = pandas.DataFrame(v_brf, columns=['x', 'y', 'z'])
+    time = vel[['time_stamp', 'seq', 'secs', 'nsecs']].copy()
+    out = pandas.concat([time, df], axis=1)
+
+    # write CSV
+    if args.outfile is not None:
+        out.to_csv(args.outfile, sep=';')
+        print('wrote {} lines to {}'.format(len(out)+1, args.outfile))
+
+    # plot
+    if args.plot:
+        out[['x','y','z']].plot()
+        plt.show()
 
 if __name__ == '__main__':
     main()
