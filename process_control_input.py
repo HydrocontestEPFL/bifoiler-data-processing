@@ -1,3 +1,4 @@
+import matplotlib.pyplot as plt
 import pandas
 import numpy as np
 import argparse
@@ -34,7 +35,8 @@ def parse_channels(ch):
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('file', help='RC output CSV log')
-    parser.add_argument('outfile', help='CSV output file name')
+    parser.add_argument('outfile', help='CSV output file name', nargs='?')
+    parser.add_argument('--plot', help='flag to enable plot', action='store_true')
     args = parser.parse_args()
 
     src = pandas.read_csv(args.file, sep=';')
@@ -43,9 +45,16 @@ def main():
     time = src[['time_stamp', 'seq', 'secs', 'nsecs']].copy()
     out = pandas.concat([time, ch], axis=1)
 
-    out.to_csv(args.outfile, sep=';')
+    # write CSV
+    if args.outfile is not None:
+        out.to_csv(args.outfile, sep=';')
+        print('wrote {} lines to {}'.format(len(out)+1, args.outfile))
 
-    print('wrote {} lines to {}'.format(len(out)+1, args.outfile))
+    # plot
+    if args.plot:
+        out[['thrust','rudder','left_flap','right_flap']].plot()
+        plt.show()
+
 
 if __name__ == '__main__':
     main()
