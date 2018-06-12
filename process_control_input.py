@@ -6,11 +6,11 @@ import argparse
 # settings (measured)
 RIGHT_FLAP_CHANNEL = 5
 RIGHT_FLAP_GAIN = 0.0008667
-RIGHT_FLAP_OFFSET = -1.233
+RIGHT_FLAP_OFFSET = -1500 * RIGHT_FLAP_GAIN
 
 LEFT_FLAP_CHANNEL = 4
 LEFT_FLAP_GAIN = -0.0009786
-LEFT_FLAP_OFFSET = 1.539
+LEFT_FLAP_OFFSET = -1500 * LEFT_FLAP_GAIN
 
 RUDDER_CHANNEL = 2
 RUDDER_GAIN = 0.001347
@@ -52,7 +52,7 @@ def main():
 
     # plot
     if args.plot:
-        out[['thrust','rudder','left_flap','right_flap']].plot()
+        out[['thrust','rudder','left_flap','right_flap']].plot(drawstyle='steps')
         plt.show()
 
 
