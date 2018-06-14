@@ -26,10 +26,12 @@ def channel_line(ch):
 def parse_channels(ch):
     df = pandas.DataFrame()
     ch = np.array([channel_line(line) for line in ch])
-    df['thrust'] = ch[:,THRUST_CHANNEL-1] * THRUST_GAIN + THRUST_OFFSET
+    left = ch[:,LEFT_FLAP_CHANNEL-1] * LEFT_FLAP_GAIN + LEFT_FLAP_OFFSET
+    right = ch[:,RIGHT_FLAP_CHANNEL-1] * RIGHT_FLAP_GAIN + RIGHT_FLAP_OFFSET
+    df['flaps'] = (left - right) / 2
+    df['aileron'] = (left + right) / 2
     df['rudder'] = ch[:,RUDDER_CHANNEL-1] * RUDDER_GAIN + RUDDER_OFFSET
-    df['left_flap'] = ch[:,LEFT_FLAP_CHANNEL-1] * LEFT_FLAP_GAIN + LEFT_FLAP_OFFSET
-    df['right_flap'] = ch[:,RIGHT_FLAP_CHANNEL-1] * RIGHT_FLAP_GAIN + RIGHT_FLAP_OFFSET
+    df['thrust'] = ch[:,THRUST_CHANNEL-1] * THRUST_GAIN + THRUST_OFFSET
     return df
 
 def main():
@@ -52,7 +54,7 @@ def main():
 
     # plot
     if args.plot:
-        out[['thrust','rudder','left_flap','right_flap']].plot(drawstyle='steps')
+        out[['flaps','aileron','rudder','thrust']].plot(drawstyle='steps')
         plt.show()
 
 
