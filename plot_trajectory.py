@@ -4,20 +4,19 @@ import matplotlib.pyplot as plt
 from matplotlib.collections import LineCollection
 from matplotlib.colors import ListedColormap, BoundaryNorm
 import argparse
+import os
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument('velocity_log', help='Velocity CSV log')
-    parser.add_argument('quaternion_log', help='Quaternion orientation CSV log')
-    parser.add_argument('position_log', help='Position CSV log')
-    parser.add_argument('outfile', help='CSV output file name')
+    parser.add_argument('dir', help='Directory containing CSV logs')
     args = parser.parse_args()
 
-    velocity_log = pandas.read_csv(args.velocity_log, sep=';')
+
+    velocity_log = pandas.read_csv(os.path.join(args.dir, '_xsens_publisher_node_filter_xs_velocity.csv'), sep=';')
     vel = velocity_log[['x', 'y']].values
     vel_abs = np.linalg.norm(vel, axis=1)
 
-    position_log = pandas.read_csv(args.position_log, sep=';')
+    position_log = pandas.read_csv(os.path.join(args.dir, '_xsens_publisher_node_filter_xs_latlongalt.csv'), sep=';')
     r = 6371e3 # m
     x = position_log[['longitude']].values*np.pi/180
     y = position_log[['latitude']].values*np.pi/180
@@ -53,9 +52,10 @@ def main():
 
     axs.set_xlim(x.min(), x.max())
     axs.set_ylim(y.min(), y.max())
+    plt.title('Trajectory log')
     plt.xlabel('x [m]')
     plt.ylabel('y [m]')
-    # plt.savefig('trajectory.png')
+    plt.savefig('trajectory_log.pdf')
     plt.show()
 
 if __name__ == '__main__':
