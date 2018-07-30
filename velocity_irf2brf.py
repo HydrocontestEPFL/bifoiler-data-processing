@@ -27,6 +27,15 @@ def q_NED2ENU(q):
 def NED2ENU(v):
     return ENU2NED(v)
 
+def vel_irf2brf(v_ENU, q_ENU):
+    # v_brf = np.array([ENU2NED(qrotate_inverse(q, v)) for q, v in zip(q_ENU, v_ENU)])
+
+    v_NED = [ENU2NED(vv) for vv in v_ENU]
+    q_NED = [q_ENU2NED(q) for q in q_ENU]
+    v_brf = np.array([qrotate_inverse(q, v) for q, v in zip(q_NED, v_NED)])
+
+    return v_brf
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('dir', help='Directory containing CSV logs')
@@ -51,17 +60,13 @@ def main():
     # reference frames were deduced purely from datalogs and what seemed to make sense
     # this should be verified by proper tests (and by checking the sensor configuration)
 
-    # velocity NED
-    v = vel[['x','y','z']].values
-    v_ENU = np.array(v)
-    # v_ENU = np.array([NED2ENU(vv) for vv in v])
+    # velocity ENU
+    v_ENU = vel[['x','y','z']].values
 
-    # quaternion orientation NED
-    quat = quat[['w','x','y','z']].values
-    q_ENU = [Quaternion(q) for q in quat]
-    # q_ENU = [q_NED2ENU(q) for q in quat]
+    # quaternion orientation ENU
+    q_ENU = [Quaternion(q) for q in quat[['w','x','y','z']].values]
 
-    v_brf = np.array([qrotate_inverse(q, v) for q, v in zip(q_ENU, v_ENU)])
+    v_brf = vel_irf2brf(v_ENU, q_ENU)
 
     df = pandas.DataFrame(v_brf, columns=['x', 'y', 'z'])
     time = vel[['time_stamp', 'seq', 'secs', 'nsecs']].copy()
