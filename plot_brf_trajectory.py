@@ -6,26 +6,7 @@ import argparse
 import os
 
 from quaternion import *
-
-def qrotate(q, v):
-    qv = Quaternion([0]+list(v))
-    qv = q * qv * q.conjugated()
-    return list(qv)[1:]
-
-def qrotate_inverse(q, v):
-    return qrotate(q.conjugated(), v)
-
-def q_ENU2NED(q):
-    return Quaternion([q[0]] + ENU2NED(q[1:]))
-
-def ENU2NED(v):
-    return [v[1], v[0], -v[2]]
-
-def q_NED2ENU(q):
-    return q_ENU2NED(q)
-
-def NED2ENU(v):
-    return ENU2NED(v)
+from velocity_irf2brf import *
 
 def main():
     parser = argparse.ArgumentParser()
@@ -57,55 +38,56 @@ def main():
 
     r -= r[0]
 
-    # velocity NED
+    # velocity ENU
     v = vel[['x','y','z']].values[::subsample]
-    # v_ENU = np.array(v)
-    v_ENU = np.array([NED2ENU(vv) for vv in v])
-    v_scale = 15*np.max(v)
+    v_ENU = np.array(v)
+    v_scale = 20*np.max(v)
 
-    # quaternion orientation NED
+    # quaternion orientation ENU
     quat = quat[['w','x','y','z']].values[::subsample]
-    # q_ENU = [Quaternion(q) for q in quat]
-    q_ENU = [q_NED2ENU(q) for q in quat]
+    q_ENU = [Quaternion(q) for q in quat]
+    q_NED = [q_ENU2NED(q) for q in q_ENU]
 
-    # Boat reference frame unit vectors
-    # e1_I = [1,0,0]
-    # e2_I = [0,1,0]
-    # e3_I = [0,0,1]
-    e1_I = NED2ENU([1,0,0])
-    e2_I = NED2ENU([0,1,0])
-    e3_I = NED2ENU([0,0,1])
-    e1_B = np.array([qrotate(q, e1_I) for q in q_ENU])
-    e2_B = np.array([qrotate(q, e2_I) for q in q_ENU])
-    e3_B = np.array([qrotate(q, e3_I) for q in q_ENU])
-    scale = 20
+    v_brf = vel_irf2brf(v_ENU, q_ENU)
+
+    # Boat reference frame unit vectors NED
+    e1_brf = [1,0,0]
+    e2_brf = [0,1,0]
+    e3_brf = [0,0,1]
+    e1_irf = np.array([NED2ENU(qrotate(q, e1_brf)) for q in q_NED])
+    e2_irf = np.array([NED2ENU(qrotate(q, e2_brf)) for q in q_NED])
+    e3_irf = np.array([NED2ENU(qrotate(q, e3_brf)) for q in q_NED])
+    scale = 25
+
+    # project BRF vector to IRF
+    v_ENU = v_brf[:,0].reshape(-1,1)*e1_irf + v_brf[:,1].reshape(-1,1)*e2_irf + v_brf[:,2].reshape(-1,1)*e3_irf
 
     # plot
     fig, ax = plt.subplots()
-    ax.quiver(r[:,0], r[:,1], v_ENU[:,0], v_ENU[:,1], color='k', width=0.005, scale=v_scale)
-    ax.quiver(r[:,0], r[:,1], e1_B[:,0], e1_B[:,1], color='r', width=0.005, scale=scale)
-    ax.quiver(r[:,0], r[:,1], e2_B[:,0], e2_B[:,1], color='g', width=0.005, scale=scale)
-    ax.quiver(r[:,0], r[:,1], e3_B[:,0], e3_B[:,1], color='b', width=0.005, scale=scale)
+    ax.quiver(r[:,0], r[:,1], v_ENU[:,0], v_ENU[:,1], color='k', width=0.003, scale=v_scale)
+    ax.quiver(r[:,0], r[:,1], e1_irf[:,0], e1_irf[:,1], color='r', width=0.003, scale=scale)
+    ax.quiver(r[:,0], r[:,1], e2_irf[:,0], e2_irf[:,1], color='g', width=0.003, scale=scale)
+    ax.quiver(r[:,0], r[:,1], e3_irf[:,0], e3_irf[:,1], color='b', width=0.003, scale=scale)
     ax.set_aspect('equal', adjustable='datalim')
+    ax.set_xlabel('East')
+    ax.set_ylabel('North')
 
-    fig, ax = plt.subplots(2,2)
-    ax[0,1].quiver(r[:,0], r[:,1], v_ENU[:,0], v_ENU[:,1], color='k', width=0.005, scale=v_scale)
-    ax[0,1].quiver(r[:,0], r[:,1], e1_B[:,0], e1_B[:,1], color='r', width=0.005, scale=scale)
-    ax[0,1].quiver(r[:,0], r[:,1], e2_B[:,0], e2_B[:,1], color='g', width=0.005, scale=scale)
-    ax[0,1].quiver(r[:,0], r[:,1], e3_B[:,0], e3_B[:,1], color='b', width=0.005, scale=scale)
-    ax[0,1].set_aspect('equal', adjustable='datalim')
+    fig, ax = plt.subplots(2,1)
+    ax[0].quiver(r[:,0], r[:,1], v_ENU[:,0], v_ENU[:,1], color='k', width=0.003, scale=v_scale)
+    ax[0].quiver(r[:,0], r[:,1], e1_irf[:,0], e1_irf[:,1], color='r', width=0.003, scale=scale)
+    ax[0].quiver(r[:,0], r[:,1], e2_irf[:,0], e2_irf[:,1], color='g', width=0.003, scale=scale)
+    ax[0].quiver(r[:,0], r[:,1], e3_irf[:,0], e3_irf[:,1], color='b', width=0.003, scale=scale)
+    ax[0].set_aspect('equal', adjustable='datalim')
+    ax[0].set_xlabel('East')
+    ax[0].set_ylabel('North')
 
-    ax[0,0].quiver(r[:,2], r[:,1], v_ENU[:,2], v_ENU[:,1], color='k', width=0.005, scale=v_scale)
-    ax[0,0].quiver(r[:,2], r[:,1], e1_B[:,2], e1_B[:,1], color='r', width=0.005, scale=scale)
-    ax[0,0].quiver(r[:,2], r[:,1], e2_B[:,2], e2_B[:,1], color='g', width=0.005, scale=scale)
-    ax[0,0].quiver(r[:,2], r[:,1], e3_B[:,2], e3_B[:,1], color='b', width=0.005, scale=scale)
-    ax[0,0].set_aspect('equal', adjustable='datalim')
-
-    ax[1,1].quiver(r[:,0], r[:,2], v_ENU[:,0], v_ENU[:,2], color='k', width=0.005, scale=v_scale)
-    ax[1,1].quiver(r[:,0], r[:,2], e1_B[:,0], e1_B[:,2], color='r', width=0.005, scale=scale)
-    ax[1,1].quiver(r[:,0], r[:,2], e2_B[:,0], e2_B[:,2], color='g', width=0.005, scale=scale)
-    ax[1,1].quiver(r[:,0], r[:,2], e3_B[:,0], e3_B[:,2], color='b', width=0.005, scale=scale)
-    ax[1,1].set_aspect('equal', adjustable='datalim')
+    ax[1].quiver(r[:,0], r[:,2], v_ENU[:,0], v_ENU[:,2], color='k', width=0.003, scale=v_scale)
+    ax[1].quiver(r[:,0], r[:,2], e1_irf[:,0], e1_irf[:,2], color='r', width=0.003, scale=scale)
+    ax[1].quiver(r[:,0], r[:,2], e2_irf[:,0], e2_irf[:,2], color='g', width=0.003, scale=scale)
+    ax[1].quiver(r[:,0], r[:,2], e3_irf[:,0], e3_irf[:,2], color='b', width=0.003, scale=scale)
+    ax[1].set_aspect('equal', adjustable='datalim')
+    ax[1].set_xlabel('East')
+    ax[1].set_ylabel('Up')
 
     plt.show()
 
