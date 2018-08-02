@@ -30,7 +30,7 @@ def NED2ENU(v):
 def vel_irf2brf(v_ENU, q_ENU):
     # v_brf = np.array([ENU2NED(qrotate_inverse(q, v)) for q, v in zip(q_ENU, v_ENU)])
 
-    v_NED = [ENU2NED(vv) for vv in v_ENU]
+    v_NED = [ENU2NED(v) for v in v_ENU]
     q_NED = [q_ENU2NED(q) for q in q_ENU]
     v_brf = np.array([qrotate_inverse(q, v) for q, v in zip(q_NED, v_NED)])
 
@@ -39,7 +39,7 @@ def vel_irf2brf(v_ENU, q_ENU):
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('dir', help='Directory containing CSV logs')
-    parser.add_argument('outfile', help='CSV output file name', nargs='?')
+    parser.add_argument('--nocsv', help='flag to disable csv', action='store_true')
     parser.add_argument('--plot', help='flag to enable plot', action='store_true')
     args = parser.parse_args()
 
@@ -72,10 +72,21 @@ def main():
     time = vel[['time_stamp', 'seq', 'secs', 'nsecs']].copy()
     out = pandas.concat([time, df], axis=1)
 
+    v_NED = [ENU2NED(v) for v in v_ENU]
+    df = pandas.DataFrame(v_NED, columns=['x', 'y', 'z'])
+    out_v_NED = pandas.concat([time, df], axis=1)
+
     # write CSV
-    if args.outfile is not None:
-        out.to_csv(args.outfile, sep=';')
-        print('wrote {} lines to {}'.format(len(out)+1, args.outfile))
+    if not args.nocsv:
+        file = os.path.join(args.dir, 'velocity_brf.csv')
+        out.to_csv(file, sep=';')
+        # out.to_csv(file, sep=';', index=False)
+        print('wrote {} lines to {}'.format(len(out)+1, file))
+
+        file = os.path.join(args.dir, 'velocity_NED.csv')
+        out_v_NED.to_csv(file, sep=';')
+        # out_v_NED.to_csv(file, sep=';', index=False)
+        print('wrote {} lines to {}'.format(len(out_v_NED)+1, file))
 
     # plot
     if args.plot:
